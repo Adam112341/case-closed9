@@ -123,12 +123,7 @@ const App: React.FC = () => {
       console.error("Investigation generation failed:", error);
       playSoundEffect('error');
       setState(prev => ({ ...prev, isGenerating: false }));
-      
-      let errorMsg = TRANSLATIONS[state.language || 'en'].generationError;
-      if (error.message?.includes('API_KEY')) {
-        errorMsg += " (API_KEY missing in Environment Variables)";
-      }
-      alert(errorMsg);
+      alert(TRANSLATIONS[state.language || 'en'].generationError + " (Check Vercel API_KEY settings)");
     }
   };
 
@@ -146,11 +141,11 @@ const App: React.FC = () => {
         isGenerating: false,
         downloadedCases: updatedCases
       }));
-    } catch (error: any) {
-      console.error("Archive failure:", error);
+    } catch (error) {
+      console.error("Download failed:", error);
       playSoundEffect('error');
       setState(prev => ({ ...prev, isGenerating: false }));
-      alert("Failed to archive the dossier. Check API_KEY settings.");
+      alert("Failed to archive the dossier. Ensure API_KEY is set in Vercel.");
     }
   };
 

@@ -15,7 +15,7 @@ export async function generateVisualSketch(prompt: string): Promise<string> {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
-        parts: [{ text: `Forensic evidence sketch: ${prompt}. Monochrome pencil style, white background, high contrast.` }]
+        parts: [{ text: `A monochrome forensic evidence sketch: ${prompt}. Minimalist, pencil style, high contrast.` }]
       },
       config: {
         imageConfig: { aspectRatio: "1:1" }
@@ -32,14 +32,13 @@ export async function generateVisualSketch(prompt: string): Promise<string> {
     }
     return "";
   } catch (e: any) {
-    console.warn("Visual generation skipped due to error:", e.message);
+    console.warn("Visual generation skipped:", e.message);
     return "";
   }
 }
 
 /**
  * Main Case Generation function using Gemini 3 Flash.
- * Focuses strictly on logic and contradictions.
  */
 export async function generateCase(language: Language, difficulty: Difficulty = 'Medium'): Promise<Case> {
   const apiKey = process.env.API_KEY;
@@ -51,17 +50,17 @@ export async function generateCase(language: Language, difficulty: Difficulty = 
   
   const systemInstruction = `
     You are a Logic Deduction Engine.
-    TASK: Generate a complex investigation dossier based on logical contradictions.
+    TASK: Generate a logical contradiction dossier.
     
     STRICT RULES:
-    1. ZERO narrative, storytelling, or flavor text. No detective monologues.
-    2. THE PUZZLE: One suspect's reported alibi (location/time) MUST be proven false by one specific piece of evidence.
-    3. Ensure the contradiction is mathematically or logically absolute.
-    4. All text fields must be provided in English (en), French (fr), and Arabic (ar).
-    5. Suspect IDs must be 's1', 's2', 's3'.
-    6. Tag the most descriptive piece of evidence with [RECONSTRUCT] for visual generation.
+    1. ZERO narrative, storytelling, or flavor text.
+    2. THE PUZZLE: One suspect's reported alibi (location/time) MUST be mathematically impossible based on one specific piece of evidence.
+    3. Use exact timestamps (e.g., 22:15) and locations.
+    4. Provide localized strings for 'en', 'fr', and 'ar'.
+    5. Suspect IDs: 's1', 's2', 's3'.
+    6. Tag the evidence with [RECONSTRUCT] for visual generation.
     
-    OUTPUT: Valid JSON matching the Case interface schema.
+    OUTPUT: Valid JSON matching the Case schema.
   `;
 
   const localizedStringSchema = {
@@ -135,7 +134,7 @@ export async function generateCase(language: Language, difficulty: Difficulty = 
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: {
-      parts: [{ text: `Generate a logical deduction puzzle: difficulty=${difficulty}. Focus on alibi vs forensic timestamps.` }]
+      parts: [{ text: `Dossier: difficulty=${difficulty}. Focus on alibi vs forensic timestamps.` }]
     },
     config: {
       systemInstruction,
@@ -144,15 +143,13 @@ export async function generateCase(language: Language, difficulty: Difficulty = 
     }
   });
 
-  const text = response.text;
-  if (!text) throw new Error("Empty response from AI server.");
-  const caseData = JSON.parse(text.trim());
+  if (!response.text) throw new Error("Empty response from AI.");
+  const caseData = JSON.parse(response.text.trim());
   
   await Promise.all(caseData.evidence.map(async (item: any) => {
     if (item.description.en.includes('[RECONSTRUCT]')) {
       const prompt = item.description.en.replace('[RECONSTRUCT]', '').trim();
       item.imageUrl = await generateVisualSketch(prompt);
-      
       const clean = (s: string) => s.replace('[RECONSTRUCT]', '').trim();
       item.description.en = clean(item.description.en);
       item.description.fr = clean(item.description.fr);
