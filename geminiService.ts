@@ -4,7 +4,6 @@ import { Case, Language, Difficulty } from "./types";
 
 /**
  * Generates a visual sketch using the standard Flash image model.
- * This restores the "Reconstruction" visual feature.
  */
 export async function generateVisualSketch(prompt: string): Promise<string> {
   const apiKey = process.env.API_KEY;
@@ -15,7 +14,7 @@ export async function generateVisualSketch(prompt: string): Promise<string> {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
-        parts: [{ text: `A monochrome forensic evidence sketch: ${prompt}. Minimalist, pencil style, high contrast.` }]
+        parts: [{ text: `A forensic black and white evidence sketch: ${prompt}. Minimalist Noir style, pencil on paper, high contrast.` }]
       },
       config: {
         imageConfig: { aspectRatio: "1:1" }
@@ -32,36 +31,35 @@ export async function generateVisualSketch(prompt: string): Promise<string> {
     }
     return "";
   } catch (e: any) {
-    console.warn("Visual generation skipped (Sketch Engine):", e.message);
+    console.warn("Visual generation skipped:", e.message);
     return "";
   }
 }
 
 /**
  * Main Case Generation function using Gemini 3 Flash.
- * Focuses on pure logic and timestamps.
  */
 export async function generateCase(language: Language, difficulty: Difficulty = 'Medium'): Promise<Case> {
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
-    throw new Error("API_KEY environment variable is not defined in Vercel.");
+    throw new Error("API_KEY is missing. Please add it to Vercel Environment Variables.");
   }
 
   const ai = new GoogleGenAI({ apiKey });
   
   const systemInstruction = `
-    You are a Logic Deduction Engine for a detective game.
-    STRICT TASK: Generate a deduction puzzle dossier.
+    You are a Pure Logic Deduction Engine.
+    TASK: Generate a complex investigation dossier based on logical contradictions.
     
-    CORE RULES:
-    1. NO narrative, flavor text, or storytelling. 
-    2. THE PUZZLE: Exactly ONE suspect's reported alibi (location + time) is logically impossible based on exactly ONE piece of evidence.
-    3. Contradictions must be temporal (timestamps like 22:15) or spatial (distance/location).
-    4. Provide localized strings for 'en', 'fr', and 'ar'.
-    5. Suspects IDs: 's1', 's2', 's3'.
-    6. Identify one specific evidence piece for visual reconstruction by including [RECONSTRUCT] in its description.
+    STRICT RULES:
+    1. ZERO narrative, storytelling, or detective monologues.
+    2. THE PUZZLE: Exactly one suspect's alibi (location/time) must be mathematically impossible based on one forensic evidence item.
+    3. Use exact timestamps (e.g., 14:45) and distances.
+    4. Text fields MUST be provided for keys 'en', 'fr', and 'ar'.
+    5. Suspect IDs must be 's1', 's2', 's3'.
+    6. Include [RECONSTRUCT] in the description of one piece of evidence for visual processing.
     
-    OUTPUT: Valid JSON matching the Case schema.
+    OUTPUT: Valid JSON only matching the schema.
   `;
 
   const localizedStringSchema = {
@@ -132,34 +130,36 @@ export async function generateCase(language: Language, difficulty: Difficulty = 
     required: ['title', 'description', 'type', 'difficulty', 'suspects', 'evidence', 'statements', 'solution']
   };
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: {
-      parts: [{ text: `Generate a logical deduction puzzle. Priority: ${difficulty}.` }]
-    },
-    config: {
-      systemInstruction,
-      responseMimeType: "application/json",
-      responseSchema
-    }
-  });
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: {
+        parts: [{ text: `Dossier: difficulty=${difficulty}.` }]
+      },
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema
+      }
+    });
 
-  if (!response.text) throw new Error("Received empty text response from Gemini API.");
-  
-  const caseData = JSON.parse(response.text.trim());
-  
-  // Process visual reconstructions if tagged
-  await Promise.all(caseData.evidence.map(async (item: any) => {
-    if (item.description.en.includes('[RECONSTRUCT]')) {
-      const prompt = item.description.en.replace('[RECONSTRUCT]', '').trim();
-      item.imageUrl = await generateVisualSketch(prompt);
-      
-      const clean = (s: string) => s.replace('[RECONSTRUCT]', '').trim();
-      item.description.en = clean(item.description.en);
-      item.description.fr = clean(item.description.fr);
-      item.description.ar = clean(item.description.ar);
-    }
-  }));
+    if (!response.text) throw new Error("Empty AI response.");
+    const caseData = JSON.parse(response.text.trim());
+    
+    await Promise.all(caseData.evidence.map(async (item: any) => {
+      if (item.description.en.includes('[RECONSTRUCT]')) {
+        const prompt = item.description.en.replace('[RECONSTRUCT]', '').trim();
+        item.imageUrl = await generateVisualSketch(prompt);
+        const clean = (s: string) => s.replace('[RECONSTRUCT]', '').trim();
+        item.description.en = clean(item.description.en);
+        item.description.fr = clean(item.description.fr);
+        item.description.ar = clean(item.description.ar);
+      }
+    }));
 
-  return { ...caseData, id: `case-${Date.now()}` };
+    return { ...caseData, id: `case-${Date.now()}` };
+  } catch (err: any) {
+    console.error("Case Generation Error:", err);
+    throw err;
+  }
 }
