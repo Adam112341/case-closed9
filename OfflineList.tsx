@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Case, Language } from '../types';
-import { TRANSLATIONS, GAME_TITLE } from '../constants';
+import { Case, Language } from './types';
+import { TRANSLATIONS } from './constants';
 
 interface Props {
   language: Language;
@@ -19,10 +19,8 @@ const OfflineList: React.FC<Props> = ({ language, downloadedCases, onPlay, onDel
     <div className={`min-h-screen bg-black p-6 ${isRtl ? 'rtl' : ''} typewriter`}>
       <div className="max-w-2xl mx-auto w-full">
         <div className="flex items-center gap-6 mb-16 border-b-2 border-slate-900 pb-8">
-          <button onClick={onBack} className="p-2 text-red-700 hover:text-white transition-colors">
-            <svg className={`w-10 h-10 ${isRtl ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
+          <button onClick={onBack} className="p-2 text-red-700 hover:text-white">
+            <svg className={`w-10 h-10 ${isRtl ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
           </button>
           <h1 className="text-4xl font-black text-white uppercase tracking-tighter">{t.offlineCases}</h1>
         </div>
@@ -38,13 +36,10 @@ const OfflineList: React.FC<Props> = ({ language, downloadedCases, onPlay, onDel
                 <div className="flex-1">
                   <h3 className="text-2xl font-black text-white uppercase tracking-tight">{c.title[language]}</h3>
                 </div>
-                
                 <div className="flex items-center gap-4">
-                  <button
-                    onClick={() => onPlay(c)}
-                    className="px-8 py-3 bg-red-700 hover:bg-red-600 text-black font-black uppercase text-sm"
-                  >
-                    {t.play}
+                  <button onClick={() => onPlay(c)} className="px-8 py-3 bg-red-700 hover:bg-red-600 text-black font-black uppercase text-sm">{t.play}</button>
+                  <button onClick={() => onDelete(c.id)} className="p-3 text-slate-700 hover:text-red-700">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                   </button>
                 </div>
               </div>
