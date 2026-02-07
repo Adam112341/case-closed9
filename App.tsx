@@ -123,7 +123,8 @@ const App: React.FC = () => {
       console.error("Dossier Generation Failed:", error);
       playSoundEffect('error');
       setState(prev => ({ ...prev, isGenerating: false }));
-      alert(`${TRANSLATIONS[state.language || 'en'].generationError}\n\nTechnical Error: ${error.message || 'Check Vercel Environment Variables'}`);
+      const errorMsg = error.message || "Invalid API Key or Service Connection";
+      alert(`${TRANSLATIONS[state.language || 'en'].generationError}\n\nTechnical Error: ${errorMsg}`);
     }
   };
 
