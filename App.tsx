@@ -120,10 +120,11 @@ const App: React.FC = () => {
         selectedSuspects: [],
       }));
     } catch (error: any) {
-      console.error("Investigation generation failed:", error);
+      console.error("Critical Generation Error:", error);
       playSoundEffect('error');
       setState(prev => ({ ...prev, isGenerating: false }));
-      alert(TRANSLATIONS[state.language || 'en'].generationError + " (Check Vercel API_KEY settings)");
+      const msg = TRANSLATIONS[state.language || 'en'].generationError;
+      alert(`${msg}\n\nTechnical Details: ${error.message || 'Unknown error'}`);
     }
   };
 
@@ -141,11 +142,11 @@ const App: React.FC = () => {
         isGenerating: false,
         downloadedCases: updatedCases
       }));
-    } catch (error) {
-      console.error("Download failed:", error);
+    } catch (error: any) {
+      console.error("Archive failure:", error);
       playSoundEffect('error');
       setState(prev => ({ ...prev, isGenerating: false }));
-      alert("Failed to archive the dossier. Ensure API_KEY is set in Vercel.");
+      alert("Failed to archive the dossier. Verify API_KEY in Vercel settings.");
     }
   };
 
