@@ -1,14 +1,15 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Case, Language, Difficulty } from "./types";
+import { Case, Language, ForensicDetail, Difficulty } from "../types";
 
 /**
  * Generates a visual sketch using the standard Flash image model.
+ * Resilient to failure: if API is restricted (403) or fails, it returns empty
+ * to allow the investigation to proceed with text-only data.
  */
 export async function generateVisualSketch(prompt: string): Promise<string> {
-  const rawKey = process.env.API_KEY;
-  if (!rawKey) return "";
-  const apiKey = rawKey.trim();
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) return "";
 
   try {
     const ai = new GoogleGenAI({ apiKey });
@@ -32,7 +33,7 @@ export async function generateVisualSketch(prompt: string): Promise<string> {
     }
     return "";
   } catch (e: any) {
-    console.warn("Visual generation skipped (Sketch Engine):", e.message);
+    console.warn("Sketch generation bypassed due to API restriction:", e.message);
     return "";
   }
 }
@@ -42,28 +43,25 @@ export async function generateVisualSketch(prompt: string): Promise<string> {
  * Focuses strictly on logic, deduction, and evidence contradictions.
  */
 export async function generateCase(language: Language, difficulty: Difficulty = 'Medium'): Promise<Case> {
-  const rawKey = process.env.API_KEY;
-  
-  if (!rawKey) {
-    throw new Error("CRITICAL: API_KEY is missing from environment variables.");
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("API_KEY environment variable is missing.");
   }
 
-  const apiKey = rawKey.trim();
   const ai = new GoogleGenAI({ apiKey });
   
   const systemInstruction = `
-    You are a Pure Logic Deduction Engine. 
+    You are a Logic Deduction Engine.
     TASK: Generate a complex investigation dossier based on logical contradictions.
     
     STRICT RULES:
-    1. ZERO narrative, storytelling, or flavor text. No "Detective, we have a problem".
-    2. THE PUZZLE: Exactly one suspect's alibi (location/time) must be mathematically impossible based on one forensic evidence item.
-    3. Use exact timestamps (e.g., 14:45) and distances.
+    1. ZERO narrative, storytelling, or flavor text.
+    2. THE PUZZLE: One suspect's reported alibi (location/time) MUST be proven false by one specific piece of evidence.
+    3. All text fields must be provided in English (en), French (fr), and Arabic (ar).
     4. Suspect IDs must be 's1', 's2', 's3'.
-    5. Text fields MUST be provided for keys 'en', 'fr', and 'ar'.
-    6. Include [RECONSTRUCT] in the description of one piece of evidence for visual processing.
+    5. Tag the most descriptive piece of evidence with [RECONSTRUCT] for visual generation.
     
-    OUTPUT: Valid JSON matching the schema.
+    OUTPUT: Valid JSON matching the required schema.
   `;
 
   const localizedStringSchema = {
@@ -134,40 +132,32 @@ export async function generateCase(language: Language, difficulty: Difficulty = 
     required: ['title', 'description', 'type', 'difficulty', 'suspects', 'evidence', 'statements', 'solution']
   };
 
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: {
-        parts: [{ text: `Generate a logic dossier. Difficulty: ${difficulty}.` }]
-      },
-      config: {
-        systemInstruction,
-        responseMimeType: "application/json",
-        responseSchema
-      }
-    });
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: {
+      parts: [{ text: `Generate a logical deduction puzzle: difficulty=${difficulty}. Focus on alibi vs forensic timestamps.` }]
+    },
+    config: {
+      systemInstruction,
+      responseMimeType: "application/json",
+      responseSchema
+    }
+  });
 
-    if (!response.text) throw new Error("Received empty text from Gemini.");
-    
-    const caseData = JSON.parse(response.text.trim());
-    
-    // Process visual reconstructions
-    await Promise.all(caseData.evidence.map(async (item: any) => {
-      if (item.description.en.includes('[RECONSTRUCT]')) {
-        const prompt = item.description.en.replace('[RECONSTRUCT]', '').trim();
-        item.imageUrl = await generateVisualSketch(prompt);
-        
-        const clean = (s: string) => s.replace('[RECONSTRUCT]', '').trim();
-        item.description.en = clean(item.description.en);
-        item.description.fr = clean(item.description.fr);
-        item.description.ar = clean(item.description.ar);
-      }
-    }));
+  if (!response.text) throw new Error("Empty response from AI server.");
+  const caseData = JSON.parse(response.text.trim());
+  
+  await Promise.all(caseData.evidence.map(async (item: any) => {
+    if (item.description.en.includes('[RECONSTRUCT]')) {
+      const prompt = item.description.en.replace('[RECONSTRUCT]', '').trim();
+      item.imageUrl = await generateVisualSketch(prompt);
+      
+      const clean = (s: string) => s.replace('[RECONSTRUCT]', '').trim();
+      item.description.en = clean(item.description.en);
+      item.description.fr = clean(item.description.fr);
+      item.description.ar = clean(item.description.ar);
+    }
+  }));
 
-    return { ...caseData, id: `case-${Date.now()}` };
-  } catch (err: any) {
-    console.error("Gemini Generation Error:", err);
-    // Rethrow with better formatting for the UI alert
-    throw new Error(err.message || "Unknown error during AI generation.");
-  }
+  return { ...caseData, id: `case-${Date.now()}` };
 }
